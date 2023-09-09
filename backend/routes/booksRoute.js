@@ -1,107 +1,102 @@
 import express from 'express';
-import { Book } from '../models/bookModel.js';
+import toolsModel from '../model/toolsModel.mjs';
 
 const router = express.Router();
+router.use(express.json());
 
-// Route for Save a new Book
-router.post('/', async (request, response) => {
-  try {
-    if (
-      !request.body.title ||
-      !request.body.author ||
-      !request.body.publishYear
-    ) {
-      return response.status(400).send({
-        message: 'Send all required fields: title, author, publishYear',
-      });
-    }
-    const newBook = {
-      title: request.body.title,
-      author: request.body.author,
-      publishYear: request.body.publishYear,
-    };
+// Error handler middleware
+const errorHandler = (res, error) => {
+  console.error(error);
+  res.status(500).json({ error: 'Internal Server Error' });
+};
 
-    const book = await Book.create(newBook);
-
-    return response.status(201).send(book);
-  } catch (error) {
-    console.log(error.message);
-    response.status(500).send({ message: error.message });
+// Middleware to check required fields for tool creation
+const validateToolData = (req, res, next) => {
+  const { name, category, owner, description, link } = req.body;
+  if (!name || !category || !owner || !description || !link) {
+    return res.status(400).json({ message: 'Send all required fields' });
   }
-});
+  next();
+};
 
-// Route for Get All Books from database
-router.get('/', async (request, response) => {
+// Get All Tools
+router.get('/', async (req, res) => {
   try {
-    const books = await Book.find({});
-
-    return response.status(200).json({
-      count: books.length,
-      data: books,
+    const tools = await toolsModel.find({});
+    res.status(200).json({
+      count: tools.length,
+      data: tools,
     });
   } catch (error) {
-    console.log(error.message);
-    response.status(500).send({ message: error.message });
+    errorHandler(res, error);
   }
 });
 
-// Route for Get One Book from database by id
-router.get('/:id', async (request, response) => {
+// Get Tool by ID
+router.get('/:id', async (req, res) => {
   try {
-    const { id } = request.params;
-
-    const book = await Book.findById(id);
-
-    return response.status(200).json(book);
+    const tool = await toolsModel.findById(req.params.id);
+    if (!tool) {
+      return res.status(404).json({ message: 'Tool not found' });
+    }
+    res.status(200).json({
+      data: tool,
+    });
   } catch (error) {
-    console.log(error.message);
-    response.status(500).send({ message: error.message });
+    errorHandler(res, error);
   }
 });
 
-// Route for Update a Book
-router.put('/:id', async (request, response) => {
+// Create New Tool
+router.post('/', validateToolData, async (req, res) => {
   try {
-    if (
-      !request.body.title ||
-      !request.body.author ||
-      !request.body.publishYear
-    ) {
-      return response.status(400).send({
-        message: 'Send all required fields: title, author, publishYear',
-      });
-    }
+    const newTool = {
+      name: req.body.name,
+      category: req.body.category,
+      owner: req.body.owner,
+      description: req.body.description,
+      link: req.body.link,
+    };
 
-    const { id } = request.params;
+    const tool = await toolsModel.create(newTool);
 
-    const result = await Book.findByIdAndUpdate(id, request.body);
-
-    if (!result) {
-      return response.status(404).json({ message: 'Book not found' });
-    }
-
-    return response.status(200).send({ message: 'Book updated successfully' });
+    return res.status(201).send(tool);
   } catch (error) {
-    console.log(error.message);
-    response.status(500).send({ message: error.message });
+    errorHandler(res, error);
   }
 });
 
-// Route for Delete a book
-router.delete('/:id', async (request, response) => {
+// Update Tool
+router.put('/:id', async (req, res) => {
   try {
-    const { id } = request.params;
-
-    const result = await Book.findByIdAndDelete(id);
-
-    if (!result) {
-      return response.status(404).json({ message: 'Book not found' });
+    const tool = await toolsModel.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    if (!tool) {
+      return res.status(404).json({ message: 'Tool not found' });
     }
-
-    return response.status(200).send({ message: 'Book deleted successfully' });
+    res.status(200).json({
+      data: tool,
+    });
   } catch (error) {
-    console.log(error.message);
-    response.status(500).send({ message: error.message });
+    errorHandler(res, error);
+  }
+});
+
+// Delete Tool
+router.delete('/:id', async (req, res) => {
+  try {
+    const tool = await toolsModel.findByIdAndDelete(req.params.id);
+    if (!tool) {
+      return res.status(404).json({ message: 'Tool not found' });
+    }
+    res.status(200).json({
+      data: tool,
+    });
+  } catch (error) {
+    errorHandler(res, error);
   }
 });
 
